@@ -1,7 +1,7 @@
 import torch
 import os
 import torch.nn.functional as F
-DEFAULT_MODEL_DIR  = "/home/yunyangz/Documents/Demucs/with_acoustic_loss/LLD_Estimator_STFT/ckpts/"
+DEFAULT_MODEL_DIR  = ""
 DEFAULT_MODEL_PATH = DEFAULT_MODEL_DIR + "lld-estimation-model_12mse_14mae.pt"
 
 
