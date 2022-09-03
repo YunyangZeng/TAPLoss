@@ -1,0 +1,133 @@
+defaults:
+  - dset: debug
+  - hydra/job_logging: colorlog
+  - hydra/hydra_logging: colorlog
+
+# Dataset related
+sample_rate: 16000
+segment: 10
+stride: 2   # in seconds, how much to stride between training examples
+pad: true   # if training sample is too short, pad it
+
+# Dataset Augmentation
+remix: false   # remix noise and clean
+bandmask: 0.   # drop at most this fraction of freqs in mel scale
+shift: 0    # random shift, number of samples
+shift_same: True   # shift noise and clean by the same amount
+revecho: 0  # add reverb like augment
+
+# Logging and printing, and does not impact training
+num_prints: 5
+device: cuda
+num_workers: 16
+verbose: 0
+show: 0   # just show the model and its size and exit
+
+# Checkpointing, by default automatically load last checkpoint
+checkpoint: true
+#continue_from: '/home/yunyangz/Documents/Demucs/with_acoustic_loss/denoiser/outputs/exp_ac_loss_type=matrix_l2,ac_loss_weight=1,acoustic_loss=True,batch_size=18,continue_pretrained=dns64,demucs.hidden=64,dset=dns,epochs=40,eval_every=1,revecho=0,segment=10,shift=16000,shift_same=True,stft_loss=True,stride=2/checkpoints/checkpoint_epoch_18.pt' 
+continue_from: 
+      # Path the a checkpoint.th file to start from.
+      # this is not used in the name of the experiment!
+      # so use a dummy=something not to mixup experiments.
+continue_best: false  # continue from best, not last state if continue_from is set.
+continue_pretrained: dns64 # use either dns48, dns64 or master64 to fine tune from pretrained-model
+restart: false # Ignore existing checkpoints
+save_checkpoints: False
+checkpoint_file: checkpoint.th
+best_file: best.th  # will contain only best model at any point
+history_file: history.json
+samples_dir: samples
+save_again: false # if true, only load checkpoint and save again, useful to reexport best.th
+
+# Other stuff
+seed: 2022
+dummy: # use this if you want twice the same exp, with a different name
+
+# Evaluation stuff
+pesq: True # compute pesq?
+eval_every: 3  # compute test metrics every so epochs
+dry: 0.  # dry/wet knob value at eval
+streaming: False  # use streaming evaluation for Demucs
+
+# Optimization related
+optim: adam
+lr: 3e-4
+gradient_clip: True
+beta2: 0.999
+loss: l1
+grad_max_norm: 0.01
+stft_loss: False
+acoustic_loss: True
+acoustic_loss_only: False
+ac_loss_weight: 1
+ac_loss_type: matrix_l2
+stft_sc_factor: .5
+stft_mag_factor: .5
+epochs: 10
+batch_size: 30
+
+# Models
+model: demucs # either demucs or dwave
+demucs:
+  chin: 1
+  chout: 1
+  hidden: 64
+  max_hidden: 10000
+  causal: true
+  glu: true
+  depth: 5
+  kernel_size: 8
+  stride: 4
+  normalize: true
+  resample: 4
+  growth: 2
+  rescale: 0.1
+
+# Experiment launching, distributed
+ddp: false
+ddp_backend: nccl
+rendezvous_file: ./rendezvous
+
+# Internal config, don't set manually
+rank:
+world_size:
+
+# Hydra config
+hydra:
+  run:
+    dir: ./outputs/exp_${hydra.job.override_dirname}
+  job:
+    config:
+      # configuration for the ${hydra.job.override_dirname} runtime variable
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        # Remove all paths, as the / in them would mess up things
+        # Remove params that would not impact the training itself
+        # Remove all slurm and submit params.
+        # This is ugly I know...
+        exclude_keys: [
+          'hydra.job_logging.handles.file.filename',
+          'dset.train', 'dset.valid', 'dset.test', 'dset.noisy_json', 'dset.noisy_dir',
+          'num_prints', 'continue_from', 'save_again',
+          'device', 'num_workers', 'print_freq', 'restart', 'verbose',
+          'log', 'ddp', 'ddp_backend', 'rendezvous_file', 'rank', 'world_size']
+  job_logging:
+    handlers:
+      file:
+        class: logging.FileHandler
+        mode: w
+        formatter: colorlog
+        filename: trainer.log
+      console:
+        class: logging.StreamHandler
+        formatter: colorlog
+        stream: ext://sys.stderr
+
+  hydra_logging:
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: colorlog
+        stream: ext://sys.stderr

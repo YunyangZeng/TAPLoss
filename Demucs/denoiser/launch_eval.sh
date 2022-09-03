@@ -1,0 +1,1 @@
+python -m denoiser.evaluate --model_path=/home/yunyangz/Documents/Demucs/with_acoustic_loss/denoiser/outputs/exp_ac_loss_weight=0.1,acoustic_loss=True,acoustic_loss_only=False,dset=dns,dummy=00_50_acwf_loss_ft_from_dns64,epochs=40,stft_loss=False/checkpoints/checkpoint_epoch_37_v2.pt --matching=dns --data_dir=/home/yunyangz/Documents/Demucs/with_acoustic_loss/denoiser/egs/dns/tt
