@@ -27,6 +27,8 @@ def run(args):
 
     # torch also initialize cuda seed if available
     torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
 
     model = Demucs(**args.demucs, sample_rate=args.sample_rate)
 
