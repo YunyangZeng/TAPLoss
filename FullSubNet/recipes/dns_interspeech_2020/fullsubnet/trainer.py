@@ -56,41 +56,41 @@ class Trainer(BaseTrainer):
                 cRM = self.model(noisy_mag)
                 cRM = cRM.permute(0, 2, 3, 1)
                 enhan_loss = self.loss_function(cIRM, cRM)
-                
-            if self.config["acoustic_loss"]["ac_loss_only"]:
-                loss = 0
-            else:
-                loss = enhan_loss
-                
-            "Start of modification"
-            if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
-                cRM = decompress_cIRM(cRM)
-                
-                enhanced_real = cRM[..., 0] * noisy_real - cRM[..., 1] * noisy_imag
-                enhanced_imag = cRM[..., 1] * noisy_real + cRM[..., 0] * noisy_imag
-                
-                #print("enhanced real spectrogram shape:", enhanced_real.shape)
-                clean_spec   = torch.cat((clean_real, clean_imag), 1)
-                enhanced_spec = torch.cat((enhanced_real, enhanced_imag), 1)
-                
-                clean_spec   = clean_spec.permute(0, 2, 1)
-                enhanced_spec = enhanced_spec.permute(0, 2, 1)
-                #print("enhanced spectrogram shape:", enhanced_spec.shape)
-                
-                #enhanced = self.torch_istft((enhanced_real, enhanced_imag), length=noisy.size(-1), input_type="real_imag")
-                
-                #print("enhan_loss", enhan_loss)
-                ac_loss = self.ac_loss(clean_spec, enhanced_spec)
-                loss += self.ac_loss_weight * ac_loss
-                
-                #print("ac_loss", ac_loss)
-                #print("total loss", loss)
-                #print(enhan_loss / (self.ac_loss_weight *ac_loss))
-                
-            
-                
-            else:
-                ac_loss = 0
+
+                "Start of modification"
+                if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
+                    cRM = decompress_cIRM(cRM)
+
+                    enhanced_real = cRM[..., 0] * noisy_real - cRM[..., 1] * noisy_imag
+                    enhanced_imag = cRM[..., 1] * noisy_real + cRM[..., 0] * noisy_imag
+
+                    #print("enhanced real spectrogram shape:", enhanced_real.shape)
+                    clean_spec   = torch.cat((clean_real, clean_imag), 1)
+                    enhanced_spec = torch.cat((enhanced_real, enhanced_imag), 1)
+
+                    clean_spec   = clean_spec.permute(0, 2, 1)
+                    enhanced_spec = enhanced_spec.permute(0, 2, 1)
+                    #print("enhanced spectrogram shape:", enhanced_spec.shape)
+
+                    #enhanced = self.torch_istft((enhanced_real, enhanced_imag), length=noisy.size(-1), input_type="real_imag")
+
+                    #print("enhan_loss", enhan_loss)
+                    ac_loss = self.ac_loss(clean_spec, enhanced_spec)
+                    if self.config["acoustic_loss"]["ac_loss_only"]:
+                        loss = ac_loss
+                    else:
+                        loss = enhan_loss + self.ac_loss_weight * ac_loss
+
+                    #print("ac_loss", self.ac_loss_weight * ac_loss)
+                    #print("enhan_loss", enhan_loss)
+                    #print("total loss", loss)
+                    #print(enhan_loss / (self.ac_loss_weight *ac_loss))
+                    #if i == 20:
+                    #    raise NotImplementedError
+                    
+                else:
+                    loss = enhan_loss
+                    ac_loss = torch.tensor(0)
             "End of modification"  
                 
             self.scaler.scale(loss).backward()
@@ -100,10 +100,10 @@ class Trainer(BaseTrainer):
             self.scaler.update()
 
             loss_total += loss.item()
-            if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
-                ac_loss_total += ac_loss.item()
-            else:
-                ac_loss_total += ac_loss
+            #if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
+            ac_loss_total += ac_loss.item()
+            #else:
+            #    ac_loss_total += ac_loss
             """
             if (i+1) % 200 == 0:
                 print("acoustic loss: ", ac_loss)
