@@ -1,4 +1,4 @@
 python inference.py \
   -C fullsubnet/inference.toml \
-  -M /home/yunyangz/Documents/FullSubNet/code/FullSubNet/EXPs/train/checkpoints/model_0188.pth \
-  -O fullsubnet/test_enh
+  -M /home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/dns_interspeech_2020/fullsubnet/ckpts/fullsubnet_best_model_58epochs.tar \
+  -O /home/yunyangz/Documents/FullSubNet/code/FullSubNet/EXPs/baseline/test_enh

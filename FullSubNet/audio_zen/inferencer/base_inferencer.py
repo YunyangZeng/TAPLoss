@@ -187,8 +187,8 @@ class BaseInferencer:
             if abs(enhanced).any() > 1:
                 print(f"Warning: enhanced is not in the range [-1, 1], {name}")
 
-            amp = np.iinfo(np.int16).max
-            enhanced = np.int16(0.8 * amp * enhanced / np.max(np.abs(enhanced)))
+            #amp = np.iinfo(np.int16).max
+            #enhanced = np.int16(0.8 * amp * enhanced / np.max(np.abs(enhanced)))
             sf.write(self.enhanced_dir / f"{name}.wav", enhanced, samplerate=self.acoustic_config["sr"])
 
             noisy = noisy.detach().squeeze(0).numpy()

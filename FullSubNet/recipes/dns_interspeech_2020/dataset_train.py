@@ -207,9 +207,6 @@ class Dataset(BaseDataset):
             assert clean_fileid == noisy_fileid, f"File ID mismatch"
             
             noisy_y = load_wav(noisy_file, sr=self.sr)
-            #assert len(clean_y) == len(noisy_y), f"Wav length Inequality: {len(clean_y)} {len(noise_y)}"
-            #clean_y, start_position = subsample(clean_y, sub_sample_length=int(self.sub_sample_length * self.sr), return_start_position=True)
-            #noisy_y = subsample(clean_y, sub_sample_length=int(self.sub_sample_length * self.sr), start_position=start_position)
             clean_y, noisy_y = aligned_subsample(clean_y, noisy_y, sub_sample_length = int(self.sub_sample_length * self.sr))
             assert len(clean_y) == len(noisy_y), f"Wav length Inequality: {len(clean_y)} {len(noise_y)}"
         else:

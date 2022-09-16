@@ -1,17 +1,11 @@
 import torch
 import os
 import torch.nn.functional as F
-DEFAULT_MODEL_DIR  = "/home/yunyangz/Documents/Demucs/with_acoustic_loss/LLD_Estimator_STFT/ckpts/"
-DEFAULT_MODEL_PATH = DEFAULT_MODEL_DIR + "lld-estimation-model_12mse_14mae.pt"
 
-#DEFAULT_MODEL_DIR  = "/home/yunyangz/Documents/ckpts/LLD-estimator-exp-no-sil/"
-#DEFAULT_MODEL_PATH = DEFAULT_MODEL_DIR + "ckpt_epoch_3600.pt"
-
-#print("Current Path: ", os.getcwd())
 
 class AcousticLoss(torch.nn.Module):
     
-    def __init__(self, return_LLDs = None, acoustic_model_path = DEFAULT_MODEL_PATH, device = 'cuda'):
+    def __init__(self, return_LLDs = None, acoustic_model_path = None, device = 'cuda'):
         
         super(AcousticLoss, self).__init__()
         model_state_dict = torch.load(acoustic_model_path, map_location=device)['model_state_dict']
@@ -21,13 +15,14 @@ class AcousticLoss(torch.nn.Module):
         self.l1_loss = torch.nn.L1Loss()
         self.estimate_acoustics.load_state_dict(model_state_dict)
         self.estimate_acoustics.to(device)
-        self.estimate_acoustics.train()
+        #self.estimate_acoustics.train()
+            
         
-    def __call__(self, clean_spectrogram, enhan_spectrogram, noisy_spectrogram = None):
+    def __call__(self, clean_spectrogram, enhan_spectrogram, noisy_spectrogram = None, mode = "train",loss_type = "l1"):
         
-        return self.forward(clean_spectrogram, enhan_spectrogram, noisy_spectrogram)
+        return self.forward(clean_spectrogram, enhan_spectrogram, noisy_spectrogram, mode, loss_type)
 
-    def forward(self, clean_spectrogram, enhan_spectrogram, noisy_spectrogram):
+    def forward(self, clean_spectrogram, enhan_spectrogram, noisy_spectrogram, mode, loss_type):
         
         
         """ 
@@ -37,26 +32,16 @@ class AcousticLoss(torch.nn.Module):
             real and imag spec are conatenated at the last dimension
         
         """
-        enhan_st_energy = self.get_st_energy(enhan_spectrogram)
-
+        if mode == "train":
+            self.estimate_acoustics.train()
+        else:
+            self.estimate_acoustics.eval()
         
+        enhan_st_energy = self.get_st_energy(enhan_spectrogram)
         clean_acoustics = self.estimate_acoustics(clean_spectrogram)
         enhan_acoustics = self.estimate_acoustics(enhan_spectrogram)
         
-        
-        """
-        for param in self.estimate_acoustics.linear2.parameters():
-            print(param)
-        
-        """
-        #clean_acoustics = torch.cat((clean_acoustics[:,:,:11],clean_acoustics[:,:,13:16],clean_acoustics[:,:,18:19],\
-        #                            clean_acoustics[:,:,21:22],clean_acoustics[:,:,24:]),axis = 2)
-        #enhan_acoustics = torch.cat((enhan_acoustics[:,:,:11],enhan_acoustics[:,:,13:16],enhan_acoustics[:,:,18:19],\
-        #                            enhan_acoustics[:,:,21:22],enhan_acoustics[:,:,24:]),axis = 2)
-        #print(clean_acoustics.shape)
-        
         if noisy_spectrogram is not None:
-            #noisy_spectrogram = self.get_stft(noisy_waveform)
             noisy_acoustics = self.estimate_acoustics(noisy_spectrogram)
             
             
@@ -66,13 +51,20 @@ class AcousticLoss(torch.nn.Module):
             else:
                 return {"clean_acoustics": clean_acoustics, "enhan_acoustics": enhan_acoustics}
         else:
-
+            """
+            L1
+            """
             #acoustic_loss   = self.l1_loss(enhan_acoustics, clean_acoustics)
-            
-            acoustic_loss   = torch.mean(torch.sigmoid(enhan_st_energy).unsqueeze(dim = -1) \
-            * torch.abs(enhan_acoustics - clean_acoustics))
 
-            return torch.mean(acoustic_loss)
+            if loss_type == "l1":
+                acoustic_loss   = torch.mean(torch.sigmoid(enhan_st_energy).unsqueeze(dim = -1) \
+                * torch.abs(enhan_acoustics - clean_acoustics))
+
+            elif loss_type == "l2":
+                acoustic_loss   = torch.mean(((torch.sigmoid(enhan_st_energy)** 0.5).unsqueeze(dim = -1) \
+                * (enhan_acoustics - clean_acoustics)) ** 2 )
+
+            return acoustic_loss
     
     def get_stft(self, wav):
         

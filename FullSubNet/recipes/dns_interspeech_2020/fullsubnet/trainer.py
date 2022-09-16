@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import torch
+import soundfile as sf
 from torch.cuda.amp import autocast
 from tqdm import tqdm
 
@@ -21,7 +22,9 @@ class Trainer(BaseTrainer):
         self.config = config
         if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
             self.ac_loss_weight = self.config["acoustic_loss"]["ac_loss_weight"]
-            self.ac_loss = AcousticLoss().to(torch.device("cuda"))
+            self.ac_estimator_path = self.config["acoustic_loss"]["model_path"]
+            self.ac_loss = AcousticLoss(acoustic_model_path = self.ac_estimator_path).to(torch.device("cuda"))
+            self.ac_loss_type = self.config["acoustic_loss"]["type"]
     def _train_epoch(self, epoch):
         loss_total = 0.0
         ac_loss_total = 0.0
@@ -32,30 +35,27 @@ class Trainer(BaseTrainer):
 
             noisy = noisy.to(self.rank)
             clean = clean.to(self.rank)
-
+            
+            #sf.write("/home/yunyangz/Documents/FullSubNet/temp/temp_train_clean.wav", clean[0].clone().cpu().numpy(), samplerate=16000)
+            
             noisy_mag, noisy_phase, noisy_real, noisy_imag = self.torch_stft(noisy)
             _, _, clean_real, clean_imag = self.torch_stft(clean)
             cIRM = build_complex_ideal_ratio_mask(noisy_real, noisy_imag, clean_real, clean_imag)  # [B, F, T, 2]
-            
-            
-            
-            """
-            Do not drop band otherwise can't do istft
-            """
             
             cIRM = drop_band(
                 cIRM.permute(0, 3, 1, 2),  # [B, 2, F ,T]
                 self.model.module.num_groups_in_drop_band
             ).permute(0, 2, 3, 1)
-            
-            
-            
+
             with autocast(enabled=self.use_amp):
                 # [B, F, T] => [B, 1, F, T] => model => [B, 2, F, T] => [B, F, T, 2]
                 noisy_mag = noisy_mag.unsqueeze(1)
                 cRM = self.model(noisy_mag)
                 cRM = cRM.permute(0, 2, 3, 1)
                 enhan_loss = self.loss_function(cIRM, cRM)
+                
+                if self.config["acoustic_loss"]["ac_loss_only"] and self.config["acoustic_loss"]["ac_loss_weight"] <= 0:
+                    raise ValueError('Weight of acoustic loss must be greater than 0 while ac_loss_only is true')
 
                 "Start of modification"
                 if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
@@ -64,20 +64,16 @@ class Trainer(BaseTrainer):
                     enhanced_real = cRM[..., 0] * noisy_real - cRM[..., 1] * noisy_imag
                     enhanced_imag = cRM[..., 1] * noisy_real + cRM[..., 0] * noisy_imag
 
-                    #print("enhanced real spectrogram shape:", enhanced_real.shape)
                     clean_spec   = torch.cat((clean_real, clean_imag), 1)
                     enhanced_spec = torch.cat((enhanced_real, enhanced_imag), 1)
 
                     clean_spec   = clean_spec.permute(0, 2, 1)
                     enhanced_spec = enhanced_spec.permute(0, 2, 1)
-                    #print("enhanced spectrogram shape:", enhanced_spec.shape)
-
-                    #enhanced = self.torch_istft((enhanced_real, enhanced_imag), length=noisy.size(-1), input_type="real_imag")
-
-                    #print("enhan_loss", enhan_loss)
-                    ac_loss = self.ac_loss(clean_spec, enhanced_spec)
+                    
+                    
+                    ac_loss = self.ac_loss(clean_spec, enhanced_spec, mode = "train", loss_type = self.ac_loss_type)
                     if self.config["acoustic_loss"]["ac_loss_only"]:
-                        loss = ac_loss
+                        loss = self.ac_loss_weight * ac_loss
                     else:
                         loss = enhan_loss + self.ac_loss_weight * ac_loss
 
@@ -100,15 +96,8 @@ class Trainer(BaseTrainer):
             self.scaler.update()
 
             loss_total += loss.item()
-            #if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
             ac_loss_total += ac_loss.item()
-            #else:
-            #    ac_loss_total += ac_loss
-            """
-            if (i+1) % 200 == 0:
-                print("acoustic loss: ", ac_loss)
-                print("loss:", loss)
-            """
+
         if self.rank == 0:
             self.writer.add_scalar(f"Loss/Train", loss_total / len(self.train_dataloader), epoch)
             self.writer.add_scalar(f"Acoustic Loss/Train", ac_loss_total / len(self.train_dataloader), epoch)
@@ -146,7 +135,6 @@ class Trainer(BaseTrainer):
             cRM = self.model(noisy_mag)
             cRM = cRM.permute(0, 2, 3, 1)
 
-            #loss = self.loss_function(cIRM, cRM)
             enhan_loss = self.loss_function(cIRM, cRM)
             
             if self.config["acoustic_loss"]["ac_loss_only"]:
@@ -169,7 +157,7 @@ class Trainer(BaseTrainer):
                 clean_spec   = clean_spec.permute(0, 2, 1)
                 enhanced_spec = enhanced_spec.permute(0, 2, 1)
                 
-                ac_loss = self.ac_loss(clean_spec, enhanced_spec)
+                ac_loss = self.ac_loss(clean_spec, enhanced_spec, mode = "eval", loss_type = self.ac_loss_type)
                 loss += self.ac_loss_weight * ac_loss
             else:
                 ac_loss = 0

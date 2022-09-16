@@ -16,14 +16,17 @@ hop_length = 256
 name = "mse_loss"
 
 [acoustic_loss]
-ac_loss_weight = 0.8
-ac_loss_only = false
+ac_loss_weight = 1
+ac_loss_only  = false
+model_path   = "/home/yunyangz/Documents/Demucs/with_acoustic_loss/LLD_Estimator_STFT/ckpts/lld-estimation-model_12mse_14mae.pt"
+type = "l1"
+
 
 [loss_function.args]
 
 
 [optimizer]
-lr = 0.0003
+lr = 0.00008
 beta1 = 0.9
 beta2 = 0.999
 
@@ -31,34 +34,32 @@ beta2 = 0.999
 [train_dataset]
 path = "dataset_train.Dataset"
 [train_dataset.args]
-clean_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/clean.txt"
+clean_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/tr_clean.txt"
 clean_dataset_limit = false
 clean_dataset_offset = 0
 noise_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/noise.txt"
-#noise_dataset = "None"
 noise_dataset_limit = false
 noise_dataset_offset = 0
-num_workers = 36
+num_workers =36
 pre_load_clean_dataset = false
 pre_load_noise = false
 pre_load_rir = false
-reverb_proportion = 0.75
+reverb_proportion = 0
 rir_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/rir.txt"
 rir_dataset_limit = false
 rir_dataset_offset = 0
-silence_length = 0.2
+silence_length = 0
 snr_range = [-5, 20]
 sr = 16000
 sub_sample_length = 3.072
-#sub_sample_length = 4.6
 target_dB_FS = -25
 target_dB_FS_floating_value = 10
-use_prepared_dataset = false
-noisy_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/tt_noisy.txt"
+use_prepared_dataset = true
+noisy_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/tr_noisy.txt"
 
 
 [train_dataset.dataloader]
-batch_size = 14
+batch_size = 13
 num_workers = 36
 drop_last = true
 pin_memory = false
@@ -68,7 +69,6 @@ pin_memory = false
 path = "dataset_validation.Dataset"
 [validation_dataset.args]
 dataset_dir_list = [
-    "/home/yunyangz/Documents/test_set/test_set/synthetic/with_reverb/",
     "/home/yunyangz/Documents/test_set/test_set/synthetic/no_reverb/"
 ]
 sr = 16000
@@ -95,7 +95,7 @@ num_groups_in_drop_band = 1
 [trainer]
 path = "trainer.Trainer"
 [trainer.train]
-clip_grad_norm_value = 10
+clip_grad_norm_value = 1
 epochs =9999
 save_checkpoint_interval = 1
 [trainer.validation]
