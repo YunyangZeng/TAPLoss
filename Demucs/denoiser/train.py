@@ -8,7 +8,8 @@
 
 import logging
 import os
-
+#import numpy as np
+#import random
 import hydra
 
 from denoiser.executor import start_ddp_workers
@@ -27,8 +28,8 @@ def run(args):
 
     # torch also initialize cuda seed if available
     torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
-    random.seed(args.seed)
+    #np.random.seed(args.seed)
+    #random.seed(args.seed)
 
     model = Demucs(**args.demucs, sample_rate=args.sample_rate)
 

@@ -72,6 +72,8 @@ class Solver(object):
         self.args = args
         self.mrstftloss = MultiResolutionSTFTLoss(factor_sc=args.stft_sc_factor,
                                                   factor_mag=args.stft_mag_factor).to(self.device)
+        
+        
         self.ac_loss = AcousticLoss(args = args).to(self.device)
         
         self._reset()
@@ -108,7 +110,7 @@ class Solver(object):
         if not os.path.exists("./checkpoints"):
             os.mkdir("./checkpoints")
         if self.args.save_checkpoints:
-            torch.save(package, "./checkpoints/checkpoint_epoch_%d_v2.pt" % (self.epoch+1))
+            torch.save(package, "./checkpoints/checkpoint_epoch_%d.pt" % (self.epoch+1))
             print("Checkpoint Epoch %d is saved" % (self.epoch+1))    
 
 
@@ -253,6 +255,7 @@ class Solver(object):
         name = label + f" | Epoch {epoch + 1}"
         logprog = LogProgress(logger, data_loader, updates=self.num_prints, name=name)
         for i, data in tqdm(enumerate(logprog)):
+            #print("total:", len(logprog))
             if ((i+1) % 1000 == 0) and (not cross_valid):
                 self.save_ckpts()
             noisy, clean = [x.to(self.device) for x in data]
@@ -277,17 +280,24 @@ class Solver(object):
                 
                     # MultiResolution STFT loss
                     if self.args.stft_loss:
+                        #self.stft_loss_weight = self.args.stft_loss_weight
                         sc_loss, mag_loss = self.mrstftloss(estimate.squeeze(1), clean.squeeze(1))
-                        enh_loss += sc_loss + mag_loss
-                    
+                        #print("waveform loss:", enh_loss)
+                        enh_loss += self.args.stft_loss_weight * (sc_loss + mag_loss)
+                        #print("stft loss:", self.stft_loss_weight * (sc_loss + mag_loss))
                     if self.args.acoustic_loss:
-                        self.ac_loss_weight = self.args.ac_loss_weight
+                        #self.ac_loss_weight = self.args.ac_loss_weight
                         ac_loss = self.ac_loss(torch.squeeze(clean, 1), torch.squeeze(estimate, 1))
-                        loss = enh_loss + self.ac_loss_weight * ac_loss
+                        loss = enh_loss + self.args.ac_loss_weight * ac_loss
+                        
+                        #print("Acoustic loss:", self.ac_loss_weight * ac_loss)
+                        #print("Total loss:",loss)
                     else:
                         loss = enh_loss
-                        ac_loss = torch.tensor(0)
-                          
+                        ac_loss = torch.tensor(0) 
+                    
+                
+                    
                 else:
 
                     if not self.args.acoustic_loss:
@@ -295,6 +305,8 @@ class Solver(object):
                     
                     self.ac_loss_weight = self.args.ac_loss_weight
                     ac_loss = self.ac_loss(torch.squeeze(clean, 1), torch.squeeze(estimate, 1))
+                    
+                    
                     loss = self.ac_loss_weight * ac_loss
                     enh_loss = torch.tensor(0)
                 
@@ -306,10 +318,8 @@ class Solver(object):
                     if self.args.gradient_clip:
 
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=grad_max_norm)
-                        
-                        
-                    if (i+1) % 1 == 0: # Do Gradient Accumulation
-                        self.optimizer.step( )
+
+                    self.optimizer.step( )
                
             total_loss += loss.item()
             if not self.args.acoustic_loss_only:

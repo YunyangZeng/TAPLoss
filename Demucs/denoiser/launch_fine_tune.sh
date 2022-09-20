@@ -7,11 +7,12 @@
 # authors: adiyoss and adefossez
 
 python train.py \
-  dummy=debug_l2_waveform_loss\
+  dummy=stft_ft_from_00_50_acwf_loss\
   dset=dns \
-  acoustic_loss=False \
+  acoustic_loss=True \
   acoustic_loss_only=False \
   stft_loss=True \
-  ac_loss_weight=0 \
-  epochs=10 \
+  ac_loss_weight=0.1 \
+  stft_loss_weight=0.05 \
+  epochs=4 \
   ddp=1 $@

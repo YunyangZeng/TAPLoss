@@ -12,7 +12,7 @@ pad: true   # if training sample is too short, pad it
 # Dataset Augmentation
 remix: false   # remix noise and clean
 bandmask: 0.   # drop at most this fraction of freqs in mel scale
-shift: 0    # random shift, number of samples
+shift: 16000    # random shift, number of samples
 shift_same: True   # shift noise and clean by the same amount
 revecho: 0  # add reverb like augment
 
@@ -27,13 +27,14 @@ show: 0   # just show the model and its size and exit
 checkpoint: true
 #continue_from: '/home/yunyangz/Documents/Demucs/with_acoustic_loss/denoiser/outputs/exp_ac_loss_type=matrix_l2,ac_loss_weight=1,acoustic_loss=True,batch_size=18,continue_pretrained=dns64,demucs.hidden=64,dset=dns,epochs=40,eval_every=1,revecho=0,segment=10,shift=16000,shift_same=True,stft_loss=True,stride=2/checkpoints/checkpoint_epoch_18.pt' 
 continue_from: 
+    "/home/yunyangz/Documents/Demucs/with_acoustic_loss/denoiser/outputs/exp_ac_loss_weight=0.1,acoustic_loss=True,acoustic_loss_only=False,dset=dns,dummy=stft_ft_from_00_50_acwf_loss,epochs=4,stft_loss=True,stft_loss_weight=0.05/checkpoints/checkpoint_epoch_1_v2.pt"
       # Path the a checkpoint.th file to start from.
       # this is not used in the name of the experiment!
       # so use a dummy=something not to mixup experiments.
 continue_best: false  # continue from best, not last state if continue_from is set.
-continue_pretrained: dns64 # use either dns48, dns64 or master64 to fine tune from pretrained-model
+continue_pretrained: # use either dns48, dns64 or master64 to fine tune from pretrained-model
 restart: false # Ignore existing checkpoints
-save_checkpoints: False
+save_checkpoints: True
 checkpoint_file: checkpoint.th
 best_file: best.th  # will contain only best model at any point
 history_file: history.json
@@ -46,7 +47,7 @@ dummy: # use this if you want twice the same exp, with a different name
 
 # Evaluation stuff
 pesq: True # compute pesq?
-eval_every: 3  # compute test metrics every so epochs
+eval_every: 5  # compute test metrics every so epochs
 dry: 0.  # dry/wet knob value at eval
 streaming: False  # use streaming evaluation for Demucs
 
@@ -57,15 +58,16 @@ gradient_clip: True
 beta2: 0.999
 loss: l1
 grad_max_norm: 0.01
-stft_loss: False
+stft_loss: True
 acoustic_loss: True
 acoustic_loss_only: False
-ac_loss_weight: 1
-ac_loss_type: matrix_l2
+ac_loss_weight: 0.1
+ac_loss_type: l2
 stft_sc_factor: .5
 stft_mag_factor: .5
+stft_loss_weight: 0.05
 epochs: 10
-batch_size: 30
+batch_size: 46
 
 # Models
 model: demucs # either demucs or dwave
@@ -85,7 +87,7 @@ demucs:
   rescale: 0.1
 
 # Experiment launching, distributed
-ddp: false
+ddp: true
 ddp_backend: nccl
 rendezvous_file: ./rendezvous
 

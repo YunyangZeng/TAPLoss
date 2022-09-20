@@ -1,5 +1,5 @@
 dset:
-  train: egs/dns/tr/
+  train: egs/dns/tr/00-50/
   valid: egs/dns/tt/
   test: egs/dns/tt/
   noisy_json:
