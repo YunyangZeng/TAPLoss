@@ -7,17 +7,17 @@ DEFAULT_MODEL_PATH = DEFAULT_MODEL_DIR + "lld-estimation-model_12mse_14mae.pt"
 
 class AcousticLoss(torch.nn.Module):
     
-    def __init__(self, args, acoustic_model_path = DEFAULT_MODEL_PATH, device = 'cuda'):
+    def __init__(self, args, device = 'cuda'):
         
         super(AcousticLoss, self).__init__()
-        model_state_dict = torch.load(acoustic_model_path, map_location=device)['model_state_dict']
         self.args = args
+        model_state_dict = torch.load(self.args.acoustic_model_path, map_location=device)['model_state_dict']
         self.estimate_acoustics = AcousticEstimator()
         if self.args is not None:
-            if self.args.ac_loss_type == "matrix_l2":
-                self.matrix_l2 = torch.nn.MSELoss()
-            if self.args.ac_loss_type == "matrix_l1":
-                self.matrix_l1 = torch.nn.L1Loss()
+            if self.args.ac_loss_type == "l2":
+                self.l2 = torch.nn.MSELoss()
+            if self.args.ac_loss_type == "l1":
+                self.l1 = torch.nn.L1Loss()
         self.estimate_acoustics.load_state_dict(model_state_dict)
         self.estimate_acoustics.to(device)
         self.estimate_acoustics.train()
@@ -43,7 +43,7 @@ class AcousticLoss(torch.nn.Module):
             
         if self.args is None:
             """
-                If you want to return the estimated acoustics, parse None to agrs
+                If you want to return the estimated acoustics, set agrs to None
             """
             
             if noisy_waveform is not None:
@@ -55,9 +55,9 @@ class AcousticLoss(torch.nn.Module):
         else:
 
             if self.args.ac_loss_type == "l2":
-                acoustic_loss   = self.matrix_l2(enhan_acoustics, clean_acoustics)
+                acoustic_loss   = self.l2(enhan_acoustics, clean_acoustics)
             elif self.args.ac_loss_type == "l1":
-                acoustic_loss   = self.matrix_l1(enhan_acoustics, clean_acoustics)
+                acoustic_loss   = self.l1(enhan_acoustics, clean_acoustics)
             elif self.args.ac_loss_type == "frame_energy_weighted_l2":
                 acoustic_loss   = torch.mean(((torch.sigmoid(enhan_st_energy)** 0.5).unsqueeze(dim = -1) \
                 * (enhan_acoustics - clean_acoustics)) ** 2 )                                       
