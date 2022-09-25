@@ -24,13 +24,19 @@ class AcousticLoss(torch.nn.Module):
                 self.phoneme_segmented_weight = torch.from_numpy(np.load(self.args.phoneme_segmented_weight_path)).to(device)
         self.estimate_acoustics.load_state_dict(model_state_dict)
         self.estimate_acoustics.to(device)
-        self.estimate_acoustics.train()
+        #self.estimate_acoustics.train()
         
-    def __call__(self, clean_waveform, enhan_waveform):
+    def __call__(self, clean_waveform, enhan_waveform, noisy_waveform = None, mode="train"):
         
-        return self.forward(clean_waveform, enhan_waveform)
+        return self.forward(clean_waveform, enhan_waveform, noisy_waveform, mode)
 
-    def forward(self, clean_waveform, enhan_waveform, noisy_waveform = None):
+    def forward(self, clean_waveform, enhan_waveform, noisy_waveform, mode):
+        
+        if mode == "train":
+            self.estimate_acoustics.train()
+        else:
+            self.estimate_acoustics.eval()        
+        
         
         clean_spectrogram = self.get_stft(clean_waveform)
         enhan_spectrogram, enhan_st_energy = self.get_stft(enhan_waveform, return_short_time_energy = True)
