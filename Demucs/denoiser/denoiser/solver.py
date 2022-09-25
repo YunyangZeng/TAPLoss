@@ -13,7 +13,7 @@ import time
 from tqdm import tqdm
 import torch
 import torch.nn.functional as F
-
+from torch.cuda.amp import autocast
 from . import augment, distrib, pretrained
 from .enhance import enhance
 from .evaluate import evaluate
@@ -22,7 +22,7 @@ from .utils import bold, copy_state, pull_metric, serialize_model, swap_state, L
 from torch.utils.tensorboard import SummaryWriter
 from .acoustic_loss import AcousticLoss
 from .acoustic_loss import AcousticEstimator
-
+import shutil
 logger = logging.getLogger(__name__)
 
 
@@ -70,11 +70,16 @@ class Solver(object):
         self.samples_dir = args.samples_dir  # Where to save samples
         self.num_prints = args.num_prints  # Number of times to log per epoch
         self.args = args
+        self.use_amp = self.args.use_amp
         self.mrstftloss = MultiResolutionSTFTLoss(factor_sc=args.stft_sc_factor,
                                                   factor_mag=args.stft_mag_factor).to(self.device)
         
         
         self.ac_loss = AcousticLoss(args = args).to(self.device)
+        
+        shutil.copyfile("../../conf/config.yaml", "./config.yaml")
+        shutil.copyfile("../../launch_fine_tune.sh", "./launch_fine_tune.sh")
+        
         
         self._reset()
 
@@ -178,10 +183,13 @@ class Solver(object):
             self.writer.add_scalar("loss/train_acoustic_loss", train_losses["total_acoustic_loss"], epoch)
             
             train_loss = train_losses["total_loss"]
+            train_enh_loss = train_losses["total_enhancement_loss"]
+            train_ac_loss  = train_losses["total_acoustic_loss"]
             
             logger.info(
                 bold(f'Train Summary | End of Epoch {epoch + 1} | '
-                     f'Time {time.time() - start:.2f}s | Train total Loss {train_loss:.5f}'))
+                     f'Time {time.time() - start:.2f}s | Train total Loss {train_loss:.5f}'f'| Train ac Loss {train_ac_loss:.5f}'\
+                    f'| Train enhancement Loss {train_enh_loss:.5f}'))
             if self.cv_loader:
                 # Cross validation
                 logger.info('-' * 70)
@@ -196,10 +204,13 @@ class Solver(object):
                 self.writer.add_scalar("loss/valid_acoustic_loss", valid_losses["total_acoustic_loss"], epoch)
                 print("Validation finished")
                 valid_loss = valid_losses["total_loss"]
+                valid_enh_loss = valid_losses["total_enhancement_loss"]
+                valid_ac_loss  = valid_losses["total_acoustic_loss"]
                 
                 logger.info(
                     bold(f'Valid Summary | End of Epoch {epoch + 1} | '
-                         f'Time {time.time() - start:.2f}s | Valid Loss {valid_loss:.5f}'))
+                         f'Time {time.time() - start:.2f}s | Valid Loss {valid_loss:.5f}'f'| Valid ac Loss {valid_ac_loss:.5f}'\
+                        f'| Valid enhancement Loss {valid_enh_loss:.5f}'))
                 
             else:
                 valid_loss = 0
@@ -254,7 +265,7 @@ class Solver(object):
         label = ["Train", "Valid"][cross_valid]
         name = label + f" | Epoch {epoch + 1}"
         logprog = LogProgress(logger, data_loader, updates=self.num_prints, name=name)
-        for i, data in tqdm(enumerate(logprog)):
+        for i, data in enumerate(tqdm(logprog,total=len(data_loader))):
             #print("total:", len(logprog))
             if ((i+1) % 1000 == 0) and (not cross_valid):
                 self.save_ckpts()
@@ -267,49 +278,50 @@ class Solver(object):
             estimate = self.dmodel(noisy)
             # apply a loss function after each layer
             with torch.autograd.set_detect_anomaly(True):
-                if not self.args.acoustic_loss_only: 
-                    if self.args.loss == 'l1':
-                        enh_loss = F.l1_loss(clean, estimate)
-                    elif self.args.loss == 'l2':
-                        enh_loss = F.mse_loss(clean, estimate)
-                    elif self.args.loss == 'huber':
-                        enh_loss = F.smooth_l1_loss(clean, estimate)
-                    else:
-                        raise ValueError(f"Invalid loss {self.args.loss}")
-                
-                
-                    # MultiResolution STFT loss
-                    if self.args.stft_loss:
-                        #self.stft_loss_weight = self.args.stft_loss_weight
-                        sc_loss, mag_loss = self.mrstftloss(estimate.squeeze(1), clean.squeeze(1))
+                with autocast(enabled=self.use_amp):
+                    if not self.args.acoustic_loss_only: 
+                        if self.args.loss == 'l1':
+                            enh_loss = F.l1_loss(clean, estimate)
+                        elif self.args.loss == 'l2':
+                            enh_loss = F.mse_loss(clean, estimate)
+                        elif self.args.loss == 'huber':
+                            enh_loss = F.smooth_l1_loss(clean, estimate)
+                        else:
+                            raise ValueError(f"Invalid loss {self.args.loss}")
                         #print("waveform loss:", enh_loss)
-                        enh_loss += self.args.stft_loss_weight * (sc_loss + mag_loss)
-                        #print("stft loss:", self.stft_loss_weight * (sc_loss + mag_loss))
-                    if self.args.acoustic_loss:
-                        #self.ac_loss_weight = self.args.ac_loss_weight
-                        ac_loss = self.ac_loss(torch.squeeze(clean, 1), torch.squeeze(estimate, 1))
-                        loss = enh_loss + self.args.ac_loss_weight * ac_loss
-                        
-                        #print("Acoustic loss:", self.ac_loss_weight * ac_loss)
-                        #print("Total loss:",loss)
-                    else:
-                        loss = enh_loss
-                        ac_loss = torch.tensor(0) 
-                    
-                
-                    
-                else:
 
-                    if not self.args.acoustic_loss:
-                        raise ValueError("Acoustic Loss must be set to True while Acoustic Only is True")
-                    
-                    self.ac_loss_weight = self.args.ac_loss_weight
-                    ac_loss = self.ac_loss(torch.squeeze(clean, 1), torch.squeeze(estimate, 1))
-                    
-                    
-                    loss = self.ac_loss_weight * ac_loss
-                    enh_loss = torch.tensor(0)
-                
+                        # MultiResolution STFT loss
+                        if self.args.stft_loss:
+                            #self.stft_loss_weight = self.args.stft_loss_weight
+                            sc_loss, mag_loss = self.mrstftloss(estimate.squeeze(1), clean.squeeze(1))
+
+                            enh_loss += self.args.stft_loss_weight * (sc_loss + mag_loss)
+                            #print("stft loss:", self.stft_loss_weight * (sc_loss + mag_loss))
+                        if self.args.acoustic_loss:
+                            #self.ac_loss_weight = self.args.ac_loss_weight
+                            ac_loss = self.args.ac_loss_weight * self.ac_loss(torch.squeeze(clean, 1), torch.squeeze(estimate, 1))
+                            loss = enh_loss + ac_loss
+
+                            #print("Acoustic loss:",  ac_loss)
+                            #print("Total loss:",loss)
+                        else:
+                            loss = enh_loss
+                            ac_loss = torch.tensor(0) 
+                        #if i == 20:
+                        #    raise NotImplementedError
+
+
+                    else:
+
+                        if not self.args.acoustic_loss:
+                            raise ValueError("Acoustic Loss must be set to True while Acoustic Only is True")
+
+                        ac_loss = self.args.ac_loss_weight * self.ac_loss(torch.squeeze(clean, 1), torch.squeeze(estimate, 1))
+
+
+                        loss = ac_loss
+                        enh_loss = torch.tensor(0)
+
                 # optimize model in training mode
                 if not cross_valid:
                     self.optimizer.zero_grad()
@@ -322,10 +334,9 @@ class Solver(object):
                     self.optimizer.step( )
                
             total_loss += loss.item()
-            if not self.args.acoustic_loss_only:
-                total_enhancement_loss += enh_loss.item()
-            else:
-                total_enhancement_loss = 0
+
+            total_enhancement_loss += enh_loss.item()
+
             total_acoustic_loss   += ac_loss.item()
             
             logprog.update(loss=format(total_loss / (i + 1), ".5f"))

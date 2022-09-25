@@ -8,10 +8,7 @@
 
 import logging
 import os
-#import numpy as np
-#import random
 import hydra
-
 from denoiser.executor import start_ddp_workers
 
 logger = logging.getLogger(__name__)
@@ -28,8 +25,6 @@ def run(args):
 
     # torch also initialize cuda seed if available
     torch.manual_seed(args.seed)
-    #np.random.seed(args.seed)
-    #random.seed(args.seed)
 
     model = Demucs(**args.demucs, sample_rate=args.sample_rate)
 
@@ -58,7 +53,7 @@ def run(args):
         tr_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     if args.dset.valid:
         cv_dataset = NoisyCleanSet(args.dset.valid, **kwargs)
-        cv_loader = distrib.loader(cv_dataset, batch_size=1, num_workers=args.num_workers)
+        cv_loader = distrib.loader(cv_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
     else:
         cv_loader = None
     if args.dset.test:

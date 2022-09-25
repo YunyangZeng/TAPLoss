@@ -101,7 +101,6 @@ class Demucs(nn.Module):
         self.causal = causal
         self.floor = floor
         self.resample = resample
-        self.resample = 4
         self.normalize = normalize
         self.sample_rate = sample_rate
 
@@ -175,10 +174,6 @@ class Demucs(nn.Module):
         elif self.resample == 4:
             x = upsample2(x)
             x = upsample2(x)
-        elif self.resample == 8:
-            x = upsample2(x)
-            x = upsample2(x)
-            x = upsample2(x)
         skips = []
         for encode in self.encoder:
             x = encode(x)
@@ -195,10 +190,7 @@ class Demucs(nn.Module):
         elif self.resample == 4:
             x = downsample2(x)
             x = downsample2(x)
-        elif self.resample == 8:
-            x = downsample2(x)
-            x = downsample2(x)
-            x = downsample2(x)
+            
         x = x[..., :length]
         return std * x
 
@@ -323,8 +315,7 @@ class DemucsStreamer:
             
             if resample == 4:
                 frame = upsample2(upsample2(frame))
-            elif resample == 8:
-                frame = upsample2(upsample2(upsample2(frame)))
+
             elif resample == 2:
                 frame = upsample2(frame)
             frame = frame[:, resample * resample_buffer:]  # remove pre sampling buffer
@@ -337,8 +328,7 @@ class DemucsStreamer:
                 out = downsample2(downsample2(padded_out))
             elif resample == 2:
                 out = downsample2(padded_out)
-            elif resample == 8:
-                out = downsample2(downsample2(downsample2(padded_out)))    
+   
             else:
                 out = padded_out
 

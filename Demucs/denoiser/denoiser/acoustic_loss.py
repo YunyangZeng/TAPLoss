@@ -1,9 +1,7 @@
 import torch
 import os
 import torch.nn.functional as F
-DEFAULT_MODEL_DIR  = "/home/yunyangz/Documents/Demucs/with_acoustic_loss/LLD_Estimator_STFT/ckpts/"
-DEFAULT_MODEL_PATH = DEFAULT_MODEL_DIR + "lld-estimation-model_12mse_14mae.pt"
-
+import numpy as np
 
 class AcousticLoss(torch.nn.Module):
     
@@ -11,6 +9,7 @@ class AcousticLoss(torch.nn.Module):
         
         super(AcousticLoss, self).__init__()
         self.args = args
+        self.device = device
         model_state_dict = torch.load(self.args.acoustic_model_path, map_location=device)['model_state_dict']
         self.estimate_acoustics = AcousticEstimator()
         if self.args is not None:
@@ -18,6 +17,11 @@ class AcousticLoss(torch.nn.Module):
                 self.l2 = torch.nn.MSELoss()
             if self.args.ac_loss_type == "l1":
                 self.l1 = torch.nn.L1Loss()
+        if self.args.phoneme_segmented:
+            if self.args.phoneme_segmented_weight_path is None:
+                raise ValueError("Phoneme segmented weight path is not provided")
+            else:
+                self.phoneme_segmented_weight = torch.from_numpy(np.load(self.args.phoneme_segmented_weight_path)).to(device)
         self.estimate_acoustics.load_state_dict(model_state_dict)
         self.estimate_acoustics.to(device)
         self.estimate_acoustics.train()
@@ -35,7 +39,22 @@ class AcousticLoss(torch.nn.Module):
         clean_acoustics = self.estimate_acoustics(clean_spectrogram)
         enhan_acoustics = self.estimate_acoustics(enhan_spectrogram)
         
-        
+        if self.args.phoneme_segmented:
+            """
+                phoneme_segmented_weight ==> (26, 42) 
+                acoustics ==> (B, T, 25), expand last dimension by 1 for bias
+            
+            """
+            clean_acoustics =torch.cat((clean_acoustics, torch.ones(clean_acoustics.size(dim = 0),\
+                        clean_acoustics.size(dim = 1), 1, device = self.device)), dim = -1) # acoustics ==> (B, T, 26)
+            
+            enhan_acoustics =torch.cat((enhan_acoustics, torch.ones(enhan_acoustics.size(dim = 0),\
+                        enhan_acoustics.size(dim = 1), 1, device = self.device)), dim = -1) # acoustics ==> (B, T, 26)
+            
+            
+            clean_acoustics = clean_acoustics @ self.phoneme_segmented_weight # acoustics ==> (B, T, 42)
+            enhan_acoustics = enhan_acoustics @ self.phoneme_segmented_weight # acoustics ==> (B, T, 42)
+
         if noisy_waveform is not None:
             noisy_spectrogram = self.get_stft(noisy_waveform)
             noisy_acoustics  = self.estimate_acoustics(noisy_spectrogram)
@@ -72,8 +91,6 @@ class AcousticLoss(torch.nn.Module):
         self.nfft = 512
         self.hop_length = 160
         spec = torch.stft(wav, n_fft=self.nfft, hop_length=self.hop_length, return_complex=False)
-        
-        
         spec_real = spec[..., 0]
         spec_imag = spec[..., 1]
              
@@ -94,7 +111,6 @@ class AcousticEstimator(torch.nn.Module):
         super(AcousticEstimator, self).__init__()
         
         self.lstm = torch.nn.LSTM(514, 256, 3, bidirectional=True, batch_first=True)
-        
         self.linear1 = torch.nn.Linear(512, 256)
         self.linear2 = torch.nn.Linear(256, 25)
         

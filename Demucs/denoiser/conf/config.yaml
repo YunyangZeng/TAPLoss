@@ -30,9 +30,9 @@ continue_from:
       # this is not used in the name of the experiment!
       # so use a dummy=something not to mixup experiments.
 continue_best: false  # continue from best, not last state if continue_from is set.
-continue_pretrained: dns64 # use either dns48, dns64 or master64 to fine tune from pretrained-model
+continue_pretrained:  # use either dns48, dns64 or master64 to fine tune from pretrained-model
 restart: false # Ignore existing checkpoints
-save_checkpoints: True
+save_checkpoints: true
 checkpoint_file: checkpoint.th
 best_file: best.th  # will contain only best model at any point
 history_file: history.json
@@ -45,7 +45,7 @@ dummy: # use this if you want twice the same exp, with a different name
 
 # Evaluation stuff
 pesq: True # compute pesq?
-eval_every: 5  # compute test metrics every so epochs
+eval_every: 1  # compute test metrics every so epochs
 dry: 0.  # dry/wet knob value at eval
 streaming: False  # use streaming evaluation for Demucs
 
@@ -55,18 +55,21 @@ lr: 3e-4
 gradient_clip: True
 beta2: 0.999
 loss: l1
-grad_max_norm: 0.01
-stft_loss: True
+grad_max_norm: 1
+stft_loss: False
 acoustic_model_path: "/home/yunyangz/Documents/Demucs/with_acoustic_loss/LLD_Estimator_STFT/ckpts/lld-estimation-model_12mse_14mae.pt"
 acoustic_loss: True
 acoustic_loss_only: False
 ac_loss_weight: 0.1
-ac_loss_type: l2
+ac_loss_type: frame_energy_weighted_l1
 stft_sc_factor: .5
 stft_mag_factor: .5
 stft_loss_weight: 0.05
+phoneme_segmented: True
+phoneme_segmented_weight_path: "/home/yunyangz/Documents/Demucs/with_acoustic_loss/phoneme-segmented-logit-weights-v0.npy"
 epochs: 10
-batch_size: 46
+batch_size: 52
+use_amp: true
 
 # Models
 model: demucs # either demucs or dwave
