@@ -22,9 +22,7 @@ class Trainer(BaseTrainer):
         self.config = config
         if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
             self.ac_loss_weight = self.config["acoustic_loss"]["ac_loss_weight"]
-            self.ac_estimator_path = self.config["acoustic_loss"]["model_path"]
-            self.ac_loss = AcousticLoss(acoustic_model_path = self.ac_estimator_path).to(torch.device("cuda"))
-            self.ac_loss_type = self.config["acoustic_loss"]["type"]
+            self.ac_loss = AcousticLoss(args = self.config).to(torch.device("cuda"))
     def _train_epoch(self, epoch):
         loss_total = 0.0
         ac_loss_total = 0.0
@@ -35,9 +33,7 @@ class Trainer(BaseTrainer):
 
             noisy = noisy.to(self.rank)
             clean = clean.to(self.rank)
-            
-            #sf.write("/home/yunyangz/Documents/FullSubNet/temp/temp_train_clean.wav", clean[0].clone().cpu().numpy(), samplerate=16000)
-            
+
             noisy_mag, noisy_phase, noisy_real, noisy_imag = self.torch_stft(noisy)
             _, _, clean_real, clean_imag = self.torch_stft(clean)
             cIRM = build_complex_ideal_ratio_mask(noisy_real, noisy_imag, clean_real, clean_imag)  # [B, F, T, 2]
@@ -63,26 +59,20 @@ class Trainer(BaseTrainer):
 
                     enhanced_real = cRM[..., 0] * noisy_real - cRM[..., 1] * noisy_imag
                     enhanced_imag = cRM[..., 1] * noisy_real + cRM[..., 0] * noisy_imag
-
-                    clean_spec   = torch.cat((clean_real, clean_imag), 1)
-                    enhanced_spec = torch.cat((enhanced_real, enhanced_imag), 1)
-
-                    clean_spec   = clean_spec.permute(0, 2, 1)
-                    enhanced_spec = enhanced_spec.permute(0, 2, 1)
                     
+                    enhanced = self.torch_istft((enhanced_real, enhanced_imag), length=noisy.size(-1), input_type="real_imag")
                     
-                    ac_loss = self.ac_loss(clean_spec, enhanced_spec, mode = "train", loss_type = self.ac_loss_type)
+                    #clean_spec   = torch.cat((clean_real, clean_imag), 1)
+                    #enhanced_spec = torch.cat((enhanced_real, enhanced_imag), 1)
+                    #clean_spec   = clean_spec.permute(0, 2, 1)
+                    #enhanced_spec = enhanced_spec.permute(0, 2, 1)
+                    #ac_loss = self.ac_loss(clean_spec, enhanced_spec, mode = "train")
+                    
+                    ac_loss = self.ac_loss(clean, enhanced, mode = "train")
                     if self.config["acoustic_loss"]["ac_loss_only"]:
                         loss = self.ac_loss_weight * ac_loss
                     else:
                         loss = enhan_loss + self.ac_loss_weight * ac_loss
-
-                    #print("ac_loss", self.ac_loss_weight * ac_loss)
-                    #print("enhan_loss", enhan_loss)
-                    #print("total loss", loss)
-                    #print(enhan_loss / (self.ac_loss_weight *ac_loss))
-                    #if i == 20:
-                    #    raise NotImplementedError
                     
                 else:
                     loss = enhan_loss
@@ -151,13 +141,14 @@ class Trainer(BaseTrainer):
             
             "Start of modification"
             if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
-                clean_spec   = torch.cat((clean_real, clean_imag), 1)
-                enhanced_spec = torch.cat((enhanced_real, enhanced_imag), 1)
+                #clean_spec   = torch.cat((clean_real, clean_imag), 1)
+                #enhanced_spec = torch.cat((enhanced_real, enhanced_imag), 1)
                 
-                clean_spec   = clean_spec.permute(0, 2, 1)
-                enhanced_spec = enhanced_spec.permute(0, 2, 1)
+                #clean_spec   = clean_spec.permute(0, 2, 1)
+                #enhanced_spec = enhanced_spec.permute(0, 2, 1)
                 
-                ac_loss = self.ac_loss(clean_spec, enhanced_spec, mode = "eval", loss_type = self.ac_loss_type)
+                #ac_loss = self.ac_loss(clean_spec, enhanced_spec, mode = "eval")
+                ac_loss = self.ac_loss(clean, enhanced, mode = "eval")
                 loss += self.ac_loss_weight * ac_loss
             else:
                 ac_loss = 0

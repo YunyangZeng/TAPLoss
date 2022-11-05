@@ -64,10 +64,9 @@ class Dataset(BaseDataset):
             assert noisy_dataset is not None, "Prepared noisy data path is not provided"
             clean_dataset_list = [line.rstrip('\n') for line in open(expand_path(clean_dataset), "r")]
             noisy_dataset_list = [line.rstrip('\n') for line in open(expand_path(noisy_dataset), "r")]
-            rir_dataset_list = [line.rstrip('\n') for line in open(expand_path(rir_dataset), "r")]
-            rir_dataset_list = self._offset_and_limit(rir_dataset_list, rir_dataset_offset, rir_dataset_limit)
             self.clean_dataset_list = clean_dataset_list
             self.noisy_dataset_list = noisy_dataset_list
+            rir_dataset_list = []
             self.rir_dataset_list = rir_dataset_list
         else:
             clean_dataset_list = [line.rstrip('\n') for line in open(expand_path(clean_dataset), "r")]
