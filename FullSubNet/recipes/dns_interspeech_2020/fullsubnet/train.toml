@@ -1,9 +1,10 @@
 [meta]
-save_dir = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/EXPs/"
+save_dir = # Path to save your experiments
 description = "This is a description of FullSubNet experiment."
 seed = 0  # set random seed for random, numpy, pytorch-gpu and pytorch-cpu
 use_amp = true
 cudnn_enable = false
+experiment_name = "scalability"
 
 [acoustics]
 n_fft = 512
@@ -16,10 +17,10 @@ hop_length = 256
 name = "mse_loss"
 
 [acoustic_loss]
-ac_loss_weight = 1
+ac_loss_weight = 0.3
 ac_loss_only  = false
-model_path   = "/home/yunyangz/Documents/Demucs/with_acoustic_loss/LLD_Estimator_STFT/ckpts/lld-estimation-model_12mse_14mae.pt"
-type = "l1"
+model_path   = # Path to the the TAP estimator model 
+type = "frame_energy_weighted_l1" 
 
 
 [loss_function.args]
@@ -34,10 +35,11 @@ beta2 = 0.999
 [train_dataset]
 path = "dataset_train.Dataset"
 [train_dataset.args]
-clean_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/tr_clean.txt"
+clean_dataset = # path to clean txt files
 clean_dataset_limit = false
 clean_dataset_offset = 0
-noise_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/noise.txt"
+#noise_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/noise.txt"
+noise_dataset = ""
 noise_dataset_limit = false
 noise_dataset_offset = 0
 num_workers =36
@@ -45,7 +47,8 @@ pre_load_clean_dataset = false
 pre_load_noise = false
 pre_load_rir = false
 reverb_proportion = 0
-rir_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/rir.txt"
+#rir_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/rir.txt"
+rir_dataset = ""
 rir_dataset_limit = false
 rir_dataset_offset = 0
 silence_length = 0
@@ -55,11 +58,11 @@ sub_sample_length = 3.072
 target_dB_FS = -25
 target_dB_FS_floating_value = 10
 use_prepared_dataset = true
-noisy_dataset = "/home/yunyangz/Documents/FullSubNet/code/FullSubNet/recipes/Datasets/tr_noisy.txt"
+noisy_dataset =  # path to noisy txt files
 
 
 [train_dataset.dataloader]
-batch_size = 13
+batch_size = 18
 num_workers = 36
 drop_last = true
 pin_memory = false
@@ -69,7 +72,7 @@ pin_memory = false
 path = "dataset_validation.Dataset"
 [validation_dataset.args]
 dataset_dir_list = [
-    "/home/yunyangz/Documents/test_set/test_set/synthetic/no_reverb/"
+    "/ocean/projects/cis210027p/muqiaoy/Datasets/DNS/DNS-ins20-50k/PSC/wav/test_set/synthetic/no_reverb/"
 ]
 sr = 16000
 
@@ -96,7 +99,7 @@ num_groups_in_drop_band = 1
 path = "trainer.Trainer"
 [trainer.train]
 clip_grad_norm_value = 1
-epochs =9999
+epochs =100
 save_checkpoint_interval = 1
 [trainer.validation]
 save_max_metric_score = true
@@ -104,4 +107,4 @@ validation_interval = 1
 [trainer.visualization]
 metrics = ["WB_PESQ", "STOI"]
 n_samples = 10
-num_workers = 36
+num_workers = 16
