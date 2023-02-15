@@ -9,7 +9,7 @@ from audio_zen.trainer.base_trainer import BaseTrainer
 from audio_zen.acoustics.mask import build_complex_ideal_ratio_mask, decompress_cIRM
 
 from audio_zen.acoustic_loss import AcousticLoss
-#from audio_zen.acoustic_loss import AcousticEstimator
+
 
 plt.switch_backend('agg')
 
@@ -53,21 +53,12 @@ class Trainer(BaseTrainer):
                 if self.config["acoustic_loss"]["ac_loss_only"] and self.config["acoustic_loss"]["ac_loss_weight"] <= 0:
                     raise ValueError('Weight of acoustic loss must be greater than 0 while ac_loss_only is true')
 
-                "Start of modification"
+
                 if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
                     cRM = decompress_cIRM(cRM)
-
                     enhanced_real = cRM[..., 0] * noisy_real - cRM[..., 1] * noisy_imag
-                    enhanced_imag = cRM[..., 1] * noisy_real + cRM[..., 0] * noisy_imag
-                    
+                    enhanced_imag = cRM[..., 1] * noisy_real + cRM[..., 0] * noisy_imag                  
                     enhanced = self.torch_istft((enhanced_real, enhanced_imag), length=noisy.size(-1), input_type="real_imag")
-                    
-                    #clean_spec   = torch.cat((clean_real, clean_imag), 1)
-                    #enhanced_spec = torch.cat((enhanced_real, enhanced_imag), 1)
-                    #clean_spec   = clean_spec.permute(0, 2, 1)
-                    #enhanced_spec = enhanced_spec.permute(0, 2, 1)
-                    #ac_loss = self.ac_loss(clean_spec, enhanced_spec, mode = "train")
-                    
                     ac_loss = self.ac_loss(clean, enhanced, mode = "train")
                     if self.config["acoustic_loss"]["ac_loss_only"]:
                         loss = self.ac_loss_weight * ac_loss
@@ -77,7 +68,7 @@ class Trainer(BaseTrainer):
                 else:
                     loss = enhan_loss
                     ac_loss = torch.tensor(0)
-            "End of modification"  
+ 
                 
             self.scaler.scale(loss).backward()
             self.scaler.unscale_(self.optimizer)
