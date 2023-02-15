@@ -10,13 +10,15 @@ class AcousticLoss(torch.nn.Module):
         super(AcousticLoss, self).__init__()
         self.args = args
         self.device = device
-        model_state_dict = torch.load(self.args.acoustic_model_path, map_location=device)['model_state_dict']
+        acoustic_model_path = self.args.acoustic_model_path
+        model_state_dict = torch.load(acoustic_model_path, map_location=device)['model_state_dict']
         self.estimate_acoustics = AcousticEstimator()
-        if self.args is not None:
-            if self.args.ac_loss_type == "l2":
-                self.l2 = torch.nn.MSELoss()
-            if self.args.ac_loss_type == "l1":
-                self.l1 = torch.nn.L1Loss()
+        self.loss_type = self.args.ac_loss_type
+        if self.loss_type == "l2":
+            self.l2 = torch.nn.MSELoss()
+        elif self.loss_type == "l1":
+            self.l1 = torch.nn.L1Loss()
+            
         if self.args.phoneme_segmented:
             if self.args.phoneme_segmented_weight_path is None:
                 raise ValueError("Phoneme segmented weight path is not provided")
@@ -77,7 +79,7 @@ class AcousticLoss(torch.nn.Module):
         spec = torch.stft(wav, n_fft=self.nfft, hop_length=self.hop_length, return_complex=False)
         spec_real = spec[..., 0]
         spec_imag = spec[..., 1]     
-        spec = spec.permute(0, 2, 1, 3).reshape(spec.size(dim=0), -1, 514)
+        spec = spec.permute(0, 2, 1, 3).reshape(spec.size(dim=0), -1,  2 * (self.nfft//2 + 1))
 
         if return_short_time_energy:
             st_energy = torch.mul(torch.sum(spec_real**2 + spec_imag**2, dim = 1), 2/self.nfft)
