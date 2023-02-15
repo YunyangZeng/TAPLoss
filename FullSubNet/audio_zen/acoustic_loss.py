@@ -5,74 +5,64 @@ import torch.nn.functional as F
 
 class AcousticLoss(torch.nn.Module):
     
-    def __init__(self, args, return_LLDs = None, device = 'cuda'):
+    def __init__(self, args, device = 'cuda'):
         
         super(AcousticLoss, self).__init__()
         self.args = args
+        self.device = device
         acoustic_model_path = self.args["acoustic_loss"]["model_path"] 
         model_state_dict = torch.load(acoustic_model_path, map_location=device)['model_state_dict']
-        self.return_LLDs = return_LLDs
         self.estimate_acoustics = AcousticEstimator()
-        self.l2_loss = torch.nn.MSELoss()
-        self.l1_loss = torch.nn.L1Loss()
+        self.loss_type = self.args["acoustic_loss"]["type"]
+        if self.loss_type == "l2":
+            self.l2 = torch.nn.MSELoss()
+        elif self.loss_type == "l1":
+            self.l1 = torch.nn.L1Loss()
         self.estimate_acoustics.load_state_dict(model_state_dict)
         self.estimate_acoustics.to(device)
-        #self.estimate_acoustics.train()
             
         
-    def __call__(self, clean_wav, enhan_wav, mode = "train"):
+    def __call__(self, clean_waveform, enhan_wav_waveform, mode = "train"):
         
-        return self.forward(clean_wav, enhan_wav, mode)
+        return self.forward(clean_waveform, enhan_waveform, mode)
 
-    def forward(self, clean_wav, enhan_wav, mode):
-        
-        
-        clean_spectrogram = self.get_stft(clean_wav)
-        enhan_spectrogram,enhan_st_energy = self.get_stft(enhan_wav, return_short_time_energy = True)
-         
+    def forward(self, clean_waveform, enhan_waveform, mode):
         """ 
             clean_stft => (B, T, F * 2) 
             enhan_stft => (B, T, F * 2)
-            noisy_stft => (B, T, F * 2)
-        
-        """
+            noisy_stft => (B, T, F * 2)       
+        """         
         if mode == "train":
             self.estimate_acoustics.train()
         else:
             self.estimate_acoustics.eval()
-        
+            
+            
+        clean_spectrogram = self.get_stft(clean_waveform)
+        enhan_spectrogram,enhan_st_energy = self.get_stft(enhan_waveform, return_short_time_energy = True)        
         clean_acoustics = self.estimate_acoustics(clean_spectrogram)
         enhan_acoustics = self.estimate_acoustics(enhan_spectrogram)
         
         loss_type = self.args["acoustic_loss"]["type"]
-          
-        if self.return_LLDs:
-            return {"clean_acoustics": clean_acoustics, "enhan_acoustics": enhan_acoustics}
-        else:
-            
-            if loss_type == "l1":
-                acoustic_loss   = self.l1_loss(enhan_acoustics, clean_acoustics)
-            if loss_type == "l2":
-                acoustic_loss   = self.l2_loss(enhan_acoustics, clean_acoustics)
+        if self.loss_type == "l2":
+            acoustic_loss   = self.l2(enhan_acoustics, clean_acoustics)
+        elif self.loss_type == "l1":
+            acoustic_loss   = self.l1(enhan_acoustics, clean_acoustics)
+        elif self.loss_type == "frame_energy_weighted_l2":
+            acoustic_loss   = torch.mean(((torch.sigmoid(enhan_st_energy)** 0.5).unsqueeze(dim = -1) \
+            * (enhan_acoustics - clean_acoustics)) ** 2 )
+        elif self.loss_type == "frame_energy_weighted_l1":
+            acoustic_loss   = torch.mean(torch.sigmoid(enhan_st_energy).unsqueeze(dim = -1) \
+            * torch.abs(enhan_acoustics - clean_acoustics))
 
-            if loss_type == "frame_energy_weighted_l1":
-                acoustic_loss   = torch.mean(torch.sigmoid(enhan_st_energy).unsqueeze(dim = -1) \
-                * torch.abs(enhan_acoustics - clean_acoustics))
-
-            elif loss_type == "frame_energy_weighted_l2":
-                acoustic_loss   = torch.mean(((torch.sigmoid(enhan_st_energy)** 0.5).unsqueeze(dim = -1) \
-                * (enhan_acoustics - clean_acoustics)) ** 2 )
-
-            return acoustic_loss
+        return acoustic_loss
     
     def get_stft(self, wav, return_short_time_energy = False):
         self.nfft = 512
         self.hop_length = 160
         spec = torch.stft(wav, n_fft=self.nfft, hop_length=self.hop_length, return_complex=False)
         spec_real = spec[..., 0]
-        spec_imag = spec[..., 1]
-             
-                
+        spec_imag = spec[..., 1]     
         spec = spec.permute(0, 2, 1, 3).reshape(spec.size(dim=0), -1, 2 * (self.nfft//2 + 1))
 
         if return_short_time_energy:
@@ -90,13 +80,8 @@ class AcousticEstimator(torch.nn.Module):
         super(AcousticEstimator, self).__init__()
         
         self.lstm = torch.nn.LSTM(514, 256, 3, bidirectional=True, batch_first=True)
-        
-        
-        
         self.linear1 = torch.nn.Linear(512, 256)
         self.linear2 = torch.nn.Linear(256, 25)
-        
-        
         self.act = torch.nn.ReLU()
         
     def forward(self, A0):
