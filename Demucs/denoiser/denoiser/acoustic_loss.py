@@ -50,14 +50,14 @@ class AcousticLoss(torch.nn.Module):
             clean_acoustics = clean_acoustics @ self.paap_weight # acoustics ==> (B, T, 40)
             enhan_acoustics = enhan_acoustics @ self.paap_weight # acoustics ==> (B, T, 40)  
             
-        if self.args.ac_loss_type == "l2":
+        if self.loss_type == "l2":
             acoustic_loss   = self.l2(enhan_acoustics, clean_acoustics)
-        elif self.args.ac_loss_type == "l1":
+        elif self.loss_type == "l1":
             acoustic_loss   = self.l1(enhan_acoustics, clean_acoustics)
-        elif self.args.ac_loss_type == "frame_energy_weighted_l2":
+        elif self.loss_type == "frame_energy_weighted_l2":
             acoustic_loss   = torch.mean(((torch.sigmoid(enhan_st_energy)** 0.5).unsqueeze(dim = -1) \
             * (enhan_acoustics - clean_acoustics)) ** 2 )                                       
-        elif self.args.ac_loss_type == "frame_energy_weighted_l1":
+        elif self.loss_type == "frame_energy_weighted_l1":
             acoustic_loss   = torch.mean(torch.sigmoid(enhan_st_energy).unsqueeze(dim = -1) \
             * torch.abs(enhan_acoustics - clean_acoustics))
         return acoustic_loss            
