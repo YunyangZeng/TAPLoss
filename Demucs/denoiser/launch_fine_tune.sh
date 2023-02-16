@@ -7,7 +7,7 @@
 # authors: adiyoss and adefossez
 
 python train.py \
-  dummy=ac_only\
+  dummy=exp\
   dset=dns \
   acoustic_loss=True \
   acoustic_loss_only=False \
