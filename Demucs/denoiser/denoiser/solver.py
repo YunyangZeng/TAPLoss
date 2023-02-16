@@ -22,7 +22,6 @@ from .utils import bold, copy_state, pull_metric, serialize_model, swap_state, L
 from torch.utils.tensorboard import SummaryWriter
 from .acoustic_loss import AcousticLoss
 from .acoustic_loss import AcousticEstimator
-import shutil
 logger = logging.getLogger(__name__)
 
 
@@ -74,10 +73,7 @@ class Solver(object):
         self.mrstftloss = MultiResolutionSTFTLoss(factor_sc=args.stft_sc_factor,
                                                   factor_mag=args.stft_mag_factor).to(self.device)
         self.ac_loss = AcousticLoss(loss_type = self.args.ac_loss_type, acoustic_model_path = self.args.acoustic_model_path,\
-                            paap = self.args.paap, paap_weight_path = paap_weight_path).to(self.device)
-        
-        shutil.copyfile("../../conf/config.yaml", "./config.yaml")
-        shutil.copyfile("../../launch_fine_tune.sh", "./launch_fine_tune.sh")
+                            paap = self.args.paap, paap_weight_path = self.args.paap_weight_path).to(self.device)
         
         
         self._reset()
@@ -115,10 +111,7 @@ class Solver(object):
             os.mkdir("./checkpoints")
         if self.args.save_checkpoints:
             torch.save(package, "./checkpoints/checkpoint_epoch_%d.pt" % (self.epoch+1))
-            print("Checkpoint Epoch %d is saved" % (self.epoch+1))    
-
-
-        
+            print("Checkpoint Epoch %d is saved" % (self.epoch+1))          
     def _reset(self):
         """_reset."""
         load_from = None
@@ -150,9 +143,7 @@ class Solver(object):
             logger.info("Fine tuning from pre-trained model %s", continue_pretrained)
             model = getattr(pretrained, self.args.continue_pretrained)()
             self.model.load_state_dict(model.state_dict())
-    
-        
-    
+
     def train(self):
         if self.args.save_again:
             self._serialize()
@@ -204,8 +195,7 @@ class Solver(object):
                 print("Validation finished")
                 valid_loss = valid_losses["total_loss"]
                 valid_enh_loss = valid_losses["total_enhancement_loss"]
-                valid_ac_loss  = valid_losses["total_acoustic_loss"]
-                
+                valid_ac_loss  = valid_losses["total_acoustic_loss"]               
                 logger.info(
                     bold(f'Valid Summary | End of Epoch {epoch + 1} | '
                          f'Time {time.time() - start:.2f}s | Valid Loss {valid_loss:.5f}'f'| Valid ac Loss {valid_ac_loss:.5f}'\
@@ -286,8 +276,6 @@ class Solver(object):
                             enh_loss = F.smooth_l1_loss(clean, estimate)
                         else:
                             raise ValueError(f"Invalid loss {self.args.loss}")
-                        #print("waveform loss:", enh_loss)
-
                         # MultiResolution STFT loss
                         if self.args.stft_loss:
                             sc_loss, mag_loss = self.mrstftloss(estimate.squeeze(1), clean.squeeze(1))
@@ -298,8 +286,6 @@ class Solver(object):
                         else:
                             loss = enh_loss
                             ac_loss = torch.tensor(0) 
-
-
 
                     else:
 
@@ -330,8 +316,7 @@ class Solver(object):
 
             # Just in case, clear some memory
             del loss, estimate, enh_loss, ac_loss
-            #if i % 50 == 0:    
-            #    print("Total loss:", distrib.average([total_loss / (i + 1)], i + 1)[0])   
+   
         return_stuff = {"total_loss": distrib.average([total_loss / (i + 1)], i + 1)[0], \
                    "total_enhancement_loss": distrib.average([total_enhancement_loss / (i + 1)], i + 1)[0], \
                    "total_acoustic_loss": distrib.average([total_acoustic_loss / (i + 1)], i + 1)[0] }
