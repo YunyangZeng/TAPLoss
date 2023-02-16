@@ -21,7 +21,8 @@ ac_loss_weight = 0.3
 ac_loss_only  = false
 model_path   = # Path to the the TAP estimator model 
 type = "frame_energy_weighted_l1" 
-
+paap = false
+paap_weight_path = # Path to PAAP weights, None if not using paap
 
 [loss_function.args]
 
