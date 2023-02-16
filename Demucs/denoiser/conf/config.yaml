@@ -65,8 +65,8 @@ ac_loss_type: frame_energy_weighted_l1
 stft_sc_factor: .5
 stft_mag_factor: .5
 stft_loss_weight: 0.3
-phoneme_segmented: False
-phoneme_segmented_weight_path: # path to paap weights .npy file
+paap: False
+paap_weight_path: # path to paap weights .npy file
 epochs: 40
 batch_size: 296
 use_amp: true
