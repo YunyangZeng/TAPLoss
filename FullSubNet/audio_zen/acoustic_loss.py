@@ -24,7 +24,7 @@ class AcousticLoss(torch.nn.Module):
         self.estimate_acoustics.load_state_dict(model_state_dict)
         self.estimate_acoustics.to(device)
                 
-    def __call__(self, clean_waveform, enhan_wav_waveform, mode = "train"):
+    def __call__(self, clean_waveform, enhan_waveform, mode = "train"):
         return self.forward(clean_waveform, enhan_waveform, mode)
 
     def forward(self, clean_waveform, enhan_waveform, mode):    
