@@ -65,7 +65,7 @@ ac_loss_type: frame_energy_weighted_l1
 stft_sc_factor: .5
 stft_mag_factor: .5
 stft_loss_weight: 0.3
-paap: False
+paap: False # Use paap or not
 paap_weight_path: # path to paap weights .npy file
 epochs: 40
 batch_size: 296
