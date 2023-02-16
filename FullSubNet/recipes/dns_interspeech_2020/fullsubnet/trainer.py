@@ -22,7 +22,9 @@ class Trainer(BaseTrainer):
         self.config = config
         if self.config["acoustic_loss"]["ac_loss_weight"] != 0:
             self.ac_loss_weight = self.config["acoustic_loss"]["ac_loss_weight"]
-            self.ac_loss = AcousticLoss(args = self.config).to(torch.device("cuda"))
+            self.ac_loss = AcousticLoss(loss_type = self.config["acoustic_loss"]["type"], paap = self.config["acoustic_loss"]["paap"], \
+                           paap_weight_path = self.config["acoustic_loss"]["paap_weight_path"]         
+                           ).to(torch.device("cuda"))
     def _train_epoch(self, epoch):
         loss_total = 0.0
         ac_loss_total = 0.0
