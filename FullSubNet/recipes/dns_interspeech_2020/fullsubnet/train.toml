@@ -4,7 +4,7 @@ description = "This is a description of FullSubNet experiment."
 seed = 0  # set random seed for random, numpy, pytorch-gpu and pytorch-cpu
 use_amp = true
 cudnn_enable = false
-experiment_name = "scalability"
+experiment_name = "exp"
 
 [acoustics]
 n_fft = 512
