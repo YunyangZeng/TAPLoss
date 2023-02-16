@@ -73,9 +73,8 @@ class Solver(object):
         self.use_amp = self.args.use_amp
         self.mrstftloss = MultiResolutionSTFTLoss(factor_sc=args.stft_sc_factor,
                                                   factor_mag=args.stft_mag_factor).to(self.device)
-        
-        
-        self.ac_loss = AcousticLoss(args = args).to(self.device)
+        self.ac_loss = AcousticLoss(loss_type = self.args.ac_loss_type, acoustic_model_path = self.args.acoustic_model_path,\
+                            paap = self.args.paap, paap_weight_path = paap_weight_path).to(self.device)
         
         shutil.copyfile("../../conf/config.yaml", "./config.yaml")
         shutil.copyfile("../../launch_fine_tune.sh", "./launch_fine_tune.sh")
@@ -258,7 +257,6 @@ class Solver(object):
         total_enhancement_loss = 0
         total_acoustic_loss  = 0
         data_loader = self.tr_loader if not cross_valid else self.cv_loader
-
         # get a different order for distributed training, otherwise this will get ignored
         data_loader.epoch = epoch
 
@@ -292,23 +290,15 @@ class Solver(object):
 
                         # MultiResolution STFT loss
                         if self.args.stft_loss:
-                            #self.stft_loss_weight = self.args.stft_loss_weight
                             sc_loss, mag_loss = self.mrstftloss(estimate.squeeze(1), clean.squeeze(1))
-
                             enh_loss += self.args.stft_loss_weight * (sc_loss + mag_loss)
-                            #print("stft loss:", self.stft_loss_weight * (sc_loss + mag_loss))
                         if self.args.acoustic_loss:
-                            #self.ac_loss_weight = self.args.ac_loss_weight
                             ac_loss = self.args.ac_loss_weight * self.ac_loss(torch.squeeze(clean, 1), torch.squeeze(estimate, 1))
                             loss = enh_loss + ac_loss
-
-                            #print("Acoustic loss:",  ac_loss)
-                            #print("Total loss:",loss)
                         else:
                             loss = enh_loss
                             ac_loss = torch.tensor(0) 
-                        #if i == 20:
-                        #    raise NotImplementedError
+
 
 
                     else:
@@ -317,8 +307,6 @@ class Solver(object):
                             raise ValueError("Acoustic Loss must be set to True while Acoustic Only is True")
 
                         ac_loss = self.args.ac_loss_weight * self.ac_loss(torch.squeeze(clean, 1), torch.squeeze(estimate, 1))
-
-
                         loss = ac_loss
                         enh_loss = torch.tensor(0)
 
@@ -328,7 +316,6 @@ class Solver(object):
                     loss.backward()
                     grad_max_norm = self.grad_max_norm                    
                     if self.args.gradient_clip:
-
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=grad_max_norm)
 
                     self.optimizer.step( )
