@@ -20,8 +20,9 @@ from .evaluate import evaluate
 from .stft_loss import MultiResolutionSTFTLoss
 from .utils import bold, copy_state, pull_metric, serialize_model, swap_state, LogProgress
 from torch.utils.tensorboard import SummaryWriter
-from .acoustic_loss import AcousticLoss
-from .acoustic_loss import AcousticEstimator
+import sys
+sys.path.append('../../../../TAPLoss')
+from TAPLoss import AcousticLoss
 logger = logging.getLogger(__name__)
 
 

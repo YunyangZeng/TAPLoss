@@ -8,7 +8,10 @@ from audio_zen.acoustics.feature import drop_band
 from audio_zen.trainer.base_trainer import BaseTrainer
 from audio_zen.acoustics.mask import build_complex_ideal_ratio_mask, decompress_cIRM
 
-from audio_zen.acoustic_loss import AcousticLoss
+import sys
+sys.path.append('../../../TAPLoss')
+
+from TAPLoss import AcousticLoss
 
 
 plt.switch_backend('agg')
