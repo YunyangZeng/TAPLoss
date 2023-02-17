@@ -8,8 +8,8 @@ from TAP_estimator import AcousticEstimator
 class AcousticLoss(torch.nn.Module):
     def __init__(self, loss_type, acoustic_model_path, paap = False, paap_weight_path = None, device = 'cuda'):
         super(AcousticLoss, self).__init__()
-        self.device = device
-        self.paap   = paap
+        self.device      = device
+        self.paap        = paap
         model_state_dict = torch.load(acoustic_model_path, map_location=device)['model_state_dict']
         self.estimate_acoustics = AcousticEstimator()
         self.loss_type = loss_type
@@ -35,8 +35,8 @@ class AcousticLoss(torch.nn.Module):
             self.estimate_acoustics.eval()        
         clean_spectrogram = self.get_stft(clean_waveform)
         enhan_spectrogram, enhan_st_energy = self.get_stft(enhan_waveform, return_short_time_energy = True)
-        clean_acoustics = self.estimate_acoustics(clean_spectrogram)
-        enhan_acoustics = self.estimate_acoustics(enhan_spectrogram)
+        clean_acoustics   = self.estimate_acoustics(clean_spectrogram)
+        enhan_acoustics   = self.estimate_acoustics(enhan_spectrogram)
         if self.paap:
             """
                 paap_weight ==> (26, 40) 
@@ -50,7 +50,10 @@ class AcousticLoss(torch.nn.Module):
             
             clean_acoustics = clean_acoustics @ self.paap_weight # acoustics ==> (B, T, 40)
             enhan_acoustics = enhan_acoustics @ self.paap_weight # acoustics ==> (B, T, 40)  
-            
+        """
+        loss_type must be one of the following 4 options:
+        ["l2", "l1", "frame_energy_weighted_l2", "frame_energy_weighted_l1"]
+        """
         if self.loss_type == "l2":
             acoustic_loss   = self.l2(enhan_acoustics, clean_acoustics)
         elif self.loss_type == "l1":
@@ -61,11 +64,13 @@ class AcousticLoss(torch.nn.Module):
         elif self.loss_type == "frame_energy_weighted_l1":
             acoustic_loss   = torch.mean(torch.sigmoid(enhan_st_energy).unsqueeze(dim = -1) \
             * torch.abs(enhan_acoustics - clean_acoustics))
+        else:
+            raise ValueError(f"Invalid loss_type {self.loss_type}")
         return acoustic_loss            
            
     
     def get_stft(self, wav, return_short_time_energy = False):
-        self.nfft = 512
+        self.nfft       = 512
         self.hop_length = 160
         spec = torch.stft(wav, n_fft=self.nfft, hop_length=self.hop_length, return_complex=False)
         spec_real = spec[..., 0]
