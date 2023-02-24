@@ -34,3 +34,7 @@ loss = TAPloss(clean_waveform, enhan_waveform, mode)
 #        "eval"  if your enhancement model is in eval mode,
 #        gradients won't be calculated in eval mode.
 ```
+
+## Related Resources
+
+More details about the official implementation of [PAAPLoss: A Phonetic-Aligned Acoustic Parameter Loss for Speech Enhancement](https://arxiv.org/abs/2302.08095) can be found at https://github.com/muqiaoy/PAAP. 
