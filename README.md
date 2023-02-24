@@ -38,3 +38,14 @@ loss = TAPloss(clean_waveform, enhan_waveform, mode)
 ## Related Resources
 
 More details about the official implementation of [PAAPLoss: A Phonetic-Aligned Acoustic Parameter Loss for Speech Enhancement](https://arxiv.org/abs/2302.08095) can be found at https://github.com/muqiaoy/PAAP. 
+
+## Citation
+
+Please cite our paper if you use this code for your research.
+```
+@article{zeng2023taploss,
+  title={TAPLoss: A Temporal Acoustic Parameter Loss for Speech Enhancement},
+  author={Zeng, Yunyang and Konan, Joseph and Han, Shuo and Bick, David and Yang, Muqiao and Kumar, Anurag and Watanabe, Shinji and Raj, Bhiksha},
+  journal={arXiv preprint arXiv:2302.08088},
+  year={2023}
+```
