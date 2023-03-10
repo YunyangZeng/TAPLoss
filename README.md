@@ -8,7 +8,7 @@ TAPLoss requires **Numpy** and **Pytorch**, install versions that are compatible
 
 ## Dataset
 
-The TAP esimator is trained on the **DNS 2020** dataset. Download the DNS Interspeech 2020 dataset from [here](https://github.com/microsoft/DNS-Challenge/tree/interspeech2020/master) and follow the instructions to prepare the dataset.
+The TAP esimator is trained on the **DNS 2020** clean dataset. Download the DNS Interspeech 2020 dataset from [here](https://github.com/microsoft/DNS-Challenge/tree/interspeech2020/master) and follow the instructions to prepare the dataset.
 
 ## Temporal Acoustic Parameters
 
@@ -43,7 +43,7 @@ Ground truth temporal acoustic parameters are calculated using [Opensmile](https
 
 ## Use TAPLoss in your own project
 
-1. You'll need the  `TAPLoss.py` and `TAP_estimator.py` located under `TAPLoss/`, you'll also find a `.pt` file under the same directory, which is the pretrained TAP estimator model checkpoint.
+1. You'll need the  `TAPLoss.py` and `TAP_estimator.py` located under `./TAPLoss/`, you'll also find a `.pt` file under the same directory, which is the pretrained TAP estimator model checkpoint.
 ```python
 from TAPLoss import AcousticLoss
 ```
@@ -64,14 +64,21 @@ loss = TAPloss(clean_waveform, enhan_waveform, mode)
 #        "eval" if your enhancement model is in eval mode,
 #        gradients won't be calculated in eval mode.
 ```
+4. Optimization
+- Do not update the TAP estimator parameters during training, they are supposed to be frozen. 
+- You can either fine-tune a pre-trained enhancement model with TAPLoss as an auxiliary loss or train from scratch. If you train from scratch with TAPLoss, make sure it's weight is not too big at early stage, as acoustic estimation from noisy speech is inaccurate (TAP estimator is trained on clean speech). You can control the weight by using a scheduler.
 
 ## Related Resources
 
 More details about the official implementation of [PAAPLoss: A Phonetic-Aligned Acoustic Parameter Loss for Speech Enhancement](https://arxiv.org/abs/2302.08095) can be found at https://github.com/muqiaoy/PAAP. 
 
+## Ackowledgement
+
+Our experiments were based on enhancement models adapted from [Demucs](https://github.com/facebookresearch/denoiser) and [FullSubNet](https://github.com/Audio-WestlakeU/FullSubNet). We Thank the authors of [Real Time Speech Enhancement in the Waveform Domain](https://arxiv.org/abs/2006.12847) and [FullSubNet: A Full-Band and Sub-Band Fusion Model for Real-Time Single-Channel Speech Enhancement](https://arxiv.org/abs/2010.15508) for open-sourcing their projects.
+
 ## Citation
 
-Please cite our paper if you use this code for your research.
+Please cite our paper if you use our code for your research.
 ```
 @article{zeng2023taploss,
   title={TAPLoss: A Temporal Acoustic Parameter Loss for Speech Enhancement},
