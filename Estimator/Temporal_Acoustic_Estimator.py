@@ -309,7 +309,8 @@ def get_acousticsFromSpectrogram(
                     spectrogram.shape[0]))
 
         # Calculate acoustics using our estimator. [Yunyang, et al. 2023]
-        acoustics = estimator(spectrogram)
+        with torch.inference_mode():
+            acoustics = estimator(spectrogram)
 
         return acoustics
 
