@@ -7,32 +7,22 @@ from TAP_estimator import AcousticEstimator
 from typing import *
 
 class AcousticLoss(torch.nn.Module):
-    def __init__(self, loss_type: str, acoustic_model_path: str, paap: bool = False, paap_weight_path: str = None, device = 'cuda'):
+    def __init__(self, loss_type: str, acoustic_model_path: str, device = 'cuda'):
         """
         Args:
             loss_type (str):
                 Must be one of the following 4 options: ["l2", "l1", "frame_energy_weighted_l2", "frame_energy_weighted_l1"]
             acoustic_model_path (str):
                 Path to the pretrained temporal acoustic parameter estimator model checkpoint.
-            paap (bool):
-                True for use PAAPLoss, False for use TAPLoss.
-            paap_weight_path (str):
-                Path to the Paap weight .npy file
         """
         super(AcousticLoss, self).__init__()
         self.device       = device
-        self.paap         = paap
         self.estimate_acoustics = AcousticEstimator()
         self.loss_type = loss_type
         if self.loss_type == "l2":
             self.l2 = torch.nn.MSELoss()
         elif self.loss_type == "l1":
             self.l1 = torch.nn.L1Loss()    
-        if paap:
-            if paap_weight_path is None:
-                raise ValueError("PAAP weight path is not provided")
-            else:
-                self.paap_weight = torch.from_numpy(np.load(paap_weight_path)).to(device)
         
         model_state_dict  = torch.load(acoustic_model_path, map_location=device)['model_state_dict']
         self.estimate_acoustics.load_state_dict(model_state_dict)
@@ -68,19 +58,7 @@ class AcousticLoss(torch.nn.Module):
         enhan_spectrogram, enhan_st_energy = self.get_stft(enhan_waveform, return_short_time_energy = True)
         clean_acoustics   = self.estimate_acoustics(clean_spectrogram)
         enhan_acoustics   = self.estimate_acoustics(enhan_spectrogram)
-        if self.paap:
-            """
-            paap_weight ==> (26, 40) 
-            acoustics ==> (B, T * sr, 25), expand last dimension by 1 for bias
-            """
-            clean_acoustics = torch.cat((clean_acoustics, torch.ones(clean_acoustics.size(dim = 0),\
-                        clean_acoustics.size(dim = 1), 1, device = self.device)), dim = -1) # acoustics ==> (B, T, 26)
-            
-            enhan_acoustics = torch.cat((enhan_acoustics, torch.ones(enhan_acoustics.size(dim = 0),\
-                        enhan_acoustics.size(dim = 1), 1, device = self.device)), dim = -1) # acoustics ==> (B, T, 26)
-            
-            clean_acoustics = clean_acoustics @ self.paap_weight # acoustics ==> (B, T, 40)
-            enhan_acoustics = enhan_acoustics @ self.paap_weight # acoustics ==> (B, T, 40)  
+
         """
         loss_type must be one of the following 4 options:
         ["l2", "l1", "frame_energy_weighted_l2", "frame_energy_weighted_l1"]
