@@ -49,11 +49,9 @@ from TAPLoss import AcousticLoss
 ```
 2. Initialize TAPLoss 
 ```python
-TAPloss = AcousticLoss(loss_type, acoustic_model_path, paap, paap_weight_path)
+TAPloss = AcousticLoss(loss_type, acoustic_model_path)
 # loss_type: choose one from ["l2", "l1", "frame_energy_weighted_l2", "frame_energy_weighted_l1"]
 # acoustic_model_path: path to the .pt TAP pretrained estimator model checkpoint.
-# paap: set to True if you want to use Paaploss, default is False.
-# paap_weight_path: path to the paap weights .npy file, must specify if paap == True.
 ```
 3. Call TAPloss as a function
 ```python
@@ -65,7 +63,7 @@ loss = TAPloss(clean_waveform, enhan_waveform, mode)
 #        gradients won't be calculated in eval mode.
 ```
 4. Optimization
-- Do not update the TAP estimator parameters during training, they are supposed to be frozen. 
+- You should not update the TAP estimator parameters during training, they are supposed to be frozen. 
 - You can either fine-tune a pre-trained enhancement model with TAPLoss as an auxiliary loss or train from scratch. If you train from scratch with TAPLoss, make sure it's weight is not too big at early stage, as acoustic estimation from noisy speech is inaccurate (TAP estimator is trained on clean speech). You can control the weight by using a scheduler.
 
 ## Related Resources
